@@ -3,7 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Macro Calculator</title>
+<title>SAGE — your macro assistant</title>
+<meta name="description" content="SAGE — set a goal, log what you eat, and keep the running count of protein, carbs, fat and calories." />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0d1117" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="SAGE" />
 <style>
   :root {
     --bg: #0d1117;
@@ -24,9 +32,27 @@
     --sugar: #e879f9;
     --sodium: #94a3b8;
     --cal: #a78bfa;
-    --over: #ef4444;
+    --over: #dc2626;
     --shadow: 0 10px 30px rgba(0,0,0,.35);
   }
+  /* Light theme — warm off-white, charcoal accent, hairline borders ("Y-3"-ish).
+     Macro / emoji colours stay vivid so the data pops on the bone ground. */
+  body.light {
+    --bg: #f4f2ec; --bg-2: #ffffff; --panel: #ffffff; --panel-2: #efece4; --panel-3: #e6e2d8;
+    --border: #ddd7ca; --border-soft: #e8e4da; --text: #1c1b18; --muted: #6b665c;
+    --accent: #1c1b18; --accent-2: #2b2a26;
+    --protein: #e1455f; --carbs: #2563eb; --fat: #d97706; --fiber: #0d9488;
+    --sugar: #c026d3; --sodium: #6b665c; --cal: #7c3aed; --over: #b91c1c;
+    --shadow: 0 1px 2px rgba(20,20,18,.05), 0 8px 24px rgba(20,20,18,.05);
+    background: var(--bg);
+  }
+  body.light button { color: #fff; }
+  body.light .seg button.active { color: #fff; }
+  body.light header h1 { background: none; color: var(--text); -webkit-text-fill-color: var(--text); }
+  body.light header .logo { background: #fff; border-color: var(--border); }
+  body.light .track { box-shadow: inset 0 1px 2px rgba(0,0,0,.07); }
+  body.light .toast { background: #fff; color: var(--text); border-color: var(--border); }
+  #greeting b { color: var(--text); font-weight: 700; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -48,17 +74,45 @@
   }
   header .logo {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 64px; height: 64px; border-radius: 18px; font-size: 34px;
-    background: linear-gradient(150deg, rgba(74,222,128,.22), rgba(96,165,250,.18));
-    border: 1px solid rgba(74,222,128,.3);
+    width: 64px; height: 64px; border-radius: 18px;
+    background: var(--panel-2); border: 1px solid var(--border);
     box-shadow: var(--shadow);
     margin-bottom: 14px;
   }
+  header .logo svg { width: 36px; height: 36px; display: block; color: var(--accent); }
   header h1 {
     font-size: 2rem; font-weight: 800; letter-spacing: -.02em;
     background: linear-gradient(120deg, #fff, #b9f5d0 55%, #9fd0ff);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
+  #themeToggle {
+    position: fixed; top: 12px; right: 14px; z-index: 50; width: 40px; height: 40px;
+    border-radius: 50%; padding: 0; font-size: 1.15rem; line-height: 1;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  #themeToggle:hover { transform: translateY(-1px); }
+  /* collapsible cards */
+  .card > h2 { cursor: pointer; user-select: none; }
+  .card > h2 .chev, .card > h2 .tag { margin-left: auto; }
+  .card > h2 .chev { color: var(--muted); font-size: .8rem; transition: transform .2s; }
+  .card.collapsed > h2 .chev { transform: rotate(-90deg); }
+  .card.collapsed > h2 { margin-bottom: 0; }
+  .card.collapsed .card-body { display: none; }
+  /* donut macro arcs */
+  #ringMacros circle { fill: none; stroke-width: 18; }
+  #ringMacros .arc-p { stroke: var(--protein); } #ringMacros .arc-c { stroke: var(--carbs); } #ringMacros .arc-f { stroke: var(--fat); }
+  /* water */
+  .water-row { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin: 14px 0 6px; }
+  .water-row .goalbox { margin-left: auto; font-size: .82rem; color: var(--muted); }
+  .water-row .goalbox input { width: 84px; display: inline-block; padding: 6px 8px; }
+  .cups { display: flex; gap: 6px; flex-wrap: wrap; font-size: 1.4rem; line-height: 1; margin: 4px 0; }
+  .cups span { filter: grayscale(1); opacity: .28; transition: opacity .15s, filter .15s; }
+  .cups span.full { filter: none; opacity: 1; }
+  /* Sage's one-line status */
+  .sage-status { font-size: .95rem; margin-bottom: 16px; padding: 11px 14px; background: var(--panel-2);
+    border: 1px solid var(--border-soft); border-radius: 12px; display: flex; gap: 8px; align-items: baseline; }
+  .sage-status .em { font-size: 1.05rem; }
+  .sage-status b { font-weight: 800; }
   header p { color: var(--muted); margin-top: 6px; font-size: .98rem; }
 
   /* ── cards ── */
@@ -206,11 +260,10 @@
   .prog .left.over { color: var(--over); }
   .track { height: 14px; background: var(--panel-2); border-radius: 8px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.35); }
   .track > span { display: block; height: 100%; border-radius: 8px; transition: width .35s ease; }
-  .fill-p { background: linear-gradient(90deg, #fb7185, #f43f5e); }
-  .fill-c { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
-  .fill-f { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
-  .fill-k { background: linear-gradient(90deg, #a78bfa, #8b5cf6); }
-  .fill-over { background: linear-gradient(90deg, #f87171, #ef4444) !important; }
+  .fill-p { background: var(--protein); } .fill-c { background: var(--carbs); }
+  .fill-f { background: var(--fat); } .fill-k { background: var(--cal); }
+  .fill-w { background: linear-gradient(90deg, #38bdf8, #0ea5e9); }
+  .fill-over { background: var(--over) !important; }
 
   .micro { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-soft); font-size: .9rem; display: flex; gap: 24px; flex-wrap: wrap; }
   .micro span b { font-weight: 800; }
@@ -229,20 +282,33 @@
     box-shadow: 0 10px 28px rgba(0,0,0,.45);
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* custom-preset delete pill */
+  .preset .del-pill { position: absolute; top: 10px; right: 10px; font-size: .85rem; line-height: 1;
+    background: var(--panel-3); border: 1px solid var(--border); color: var(--protein);
+    padding: 1px 7px; border-radius: 999px; cursor: pointer; }
+  .preset .del-pill:hover { background: rgba(225,29,72,.14); }
+  .preset.custom { border-style: dashed; }
 </style>
 </head>
 <body>
+<button id="themeToggle" title="Toggle light / dark">🌙</button>
 <header>
-  <div class="logo">🍽️</div>
-  <h1>Macro Calculator</h1>
-  <p>Set your goal, tap a preset or log foods by amount — and watch protein, carbs, fat & calories add up.</p>
+  <div class="logo">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="19" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="88 32" transform="rotate(-90 24 24)" opacity="0.38"></circle>
+      <circle cx="24" cy="24" r="11.5" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="50 23" transform="rotate(-90 24 24)"></circle>
+    </svg>
+  </div>
+  <h1>SAGE</h1>
+  <p id="greeting"></p>
 </header>
 
 <div class="wrap">
 
   <!-- ──────────────── GOAL & TARGETS ──────────────── -->
-  <div class="card">
-    <h2><span class="ico">🎯</span> Your goal &amp; daily targets</h2>
+  <div class="card" id="card-goal">
+    <h2><span class="ico">🎯</span> Your goal &amp; daily targets <span class="chev">▾</span></h2>
+    <div class="card-body">
     <div class="seg" id="modeSeg">
       <button data-mode="calc">Calculate from my stats</button>
       <button data-mode="manual">Enter targets manually</button>
@@ -289,22 +355,54 @@
     </div>
 
     <div class="target-chips" id="targetChips"></div>
+    </div>
   </div>
 
   <!-- ──────────────── QUICK ADD ──────────────── -->
-  <div class="card">
+  <div class="card" id="card-quick">
     <h2><span class="ico">⚡</span> Quick add
-      <span class="tag">add to:&nbsp; <select id="qaMeal" style="display:inline-block;width:auto;padding:5px 8px;font-size:.8rem;"></select></span>
+      <span class="tag">add to:&nbsp; <select id="qaMeal" style="display:inline-block;width:auto;padding:5px 8px;font-size:.8rem;"></select></span><span class="chev">▾</span>
     </h2>
-    <div style="font-size:.78rem;color:var(--muted);margin-bottom:4px;">Popular foods — one tap adds a typical serving</div>
+    <div class="card-body">
+    <div id="recentWrap" style="display:none;">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:4px;">Recently logged — your last foods, one tap to add again</div>
+      <div class="chips-scroll" id="recentChips"></div>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);margin:14px 0 4px;">Popular foods — one tap adds a typical serving</div>
     <div class="chips-scroll" id="popChips"></div>
-    <div style="font-size:.78rem;color:var(--muted);margin:14px 0 0;">Meal presets — tap to drop in a whole meal</div>
+    <div style="font-size:.78rem;color:var(--muted);margin:14px 0 0;">Meal presets — tap to drop in a whole meal · ✕ on a dashed card deletes one you saved</div>
     <div class="presets" id="presetGrid"></div>
+    </div>
+  </div>
+
+  <!-- ──────────────── WATER ──────────────── -->
+  <div class="card" id="card-water">
+    <h2><span class="ico">💧</span> Water <span class="chev">▾</span></h2>
+    <div class="card-body">
+      <div class="prog">
+        <div class="top">
+          <span class="name">💧 Today's water</span>
+          <span class="nums" id="waterNums">0 / 0 ml</span>
+          <span class="left ok" id="waterLeft"></span>
+        </div>
+        <div class="track"><span class="fill-w" id="waterFill" style="width:0%"></span></div>
+      </div>
+      <div class="cups" id="waterCups"></div>
+      <div class="water-row">
+        <button data-water="250">+ 1 cup (250 ml)</button>
+        <button data-water="500">+ 500 ml</button>
+        <button data-water="-250" class="ghost">− 250 ml</button>
+        <button data-water="0" class="ghost">Reset</button>
+        <span class="goalbox">Daily goal: <input id="waterGoal" type="number" min="0" step="any" /> ml</span>
+      </div>
+      <p class="hint">A common rule of thumb is ~2–3 L (8–12 cups) a day, counting fluids from drinks and food — set the goal to whatever fits you. Like the food log, this resets each day.</p>
+    </div>
   </div>
 
   <!-- ──────────────── ADD A FOOD ──────────────── -->
-  <div class="card">
-    <h2><span class="ico">➕</span> Add a food</h2>
+  <div class="card" id="card-add">
+    <h2><span class="ico">➕</span> Add a food <span class="chev">▾</span></h2>
+    <div class="card-body">
     <div class="row add-grid">
       <div>
         <label for="foodSel">Food</label>
@@ -319,15 +417,15 @@
       <button id="addBtn">Add</button>
     </div>
     <p class="hint" id="foodInfo">Foods are stored per 100&nbsp;g of edible portion. One "serving" uses a typical portion for that food.</p>
+    </div>
   </div>
 
   <!-- ──────────────── LOG ──────────────── -->
-  <div class="card">
-    <div class="topbar">
-      <h2 style="margin-bottom:0;"><span class="ico">📋</span> Today's food <span class="tag" id="dayLabelEl" style="margin-left:8px;"></span></h2>
-      <button class="ghost" id="clearBtn">Clear day</button>
-    </div>
-    <div class="tablewrap" style="margin-top:14px;">
+  <div class="card" id="card-log">
+    <h2><span class="ico">📋</span> Today's food <span class="tag" id="dayLabelEl" style="margin-left:8px;font-weight:600;"></span><span class="chev">▾</span></h2>
+    <div class="card-body">
+    <div style="text-align:right;margin-bottom:10px;"><button class="ghost" id="clearBtn">Clear day</button></div>
+    <div class="tablewrap">
       <table>
         <thead><tr>
           <th>Food</th><th>Amount</th>
@@ -343,12 +441,15 @@
         </tr></tfoot>
       </table>
     </div>
-    <p class="hint">This is a today-only view — the list clears itself when a new calendar day starts, and no daily history is saved. Your goal/targets and any custom foods you add are remembered.</p>
+    <p class="hint">Today-only view — the list clears itself when a new calendar day starts; no daily history is saved. Tip: each meal's header has a 💾 to save that meal as a reusable preset. Your goal/targets, water goal and custom foods are remembered.</p>
+    </div>
   </div>
 
   <!-- ──────────────── TODAY VS TARGET ──────────────── -->
-  <div class="card">
-    <h2><span class="ico">📊</span> Today vs. target</h2>
+  <div class="card" id="card-dash">
+    <h2><span class="ico">📊</span> Today vs. target <span class="chev">▾</span></h2>
+    <div class="card-body">
+    <div class="sage-status" id="sageStatus"></div>
     <div class="totals-layout">
       <div class="donut-wrap">
         <svg viewBox="0 0 200 200" class="donut" id="donut">
@@ -365,11 +466,13 @@
       <div class="bars-wrap" id="bars"></div>
     </div>
     <div class="micro" id="microRow"></div>
+    </div>
   </div>
 
   <!-- ──────────────── CUSTOM FOOD ──────────────── -->
-  <div class="card">
-    <h2><span class="ico">✏️</span> Add your own food</h2>
+  <div class="card" id="card-custom">
+    <h2><span class="ico">✏️</span> Add your own food <span class="chev">▾</span></h2>
+    <div class="card-body">
     <p class="hint" style="margin-top:0;margin-bottom:14px;">Enter values <strong>per 100&nbsp;g</strong> (from the nutrition label). Calories auto-fill from protein/carbs/fat unless you override them. Fiber, sugar and sodium are optional. Saved on this device.</p>
     <div class="row custom-grid">
       <div><label for="cName">Name</label><input id="cName" placeholder="e.g. My protein bar" /></div>
@@ -384,6 +487,7 @@
       <div style="display:flex;align-items:end;"><button id="saveFoodBtn" style="width:100%;">Save food</button></div>
     </div>
     <p class="hint" id="customList"></p>
+    </div>
   </div>
 
   <p class="foot">
@@ -537,6 +641,75 @@ const BUILTIN_FOODS = {
   "Beer, regular":                 { p:0.5,  c:3.6,  f:0,    k:43,  fb:0,  sg:0,   na:4,    serv:356 },
   "Wine, red":                     { p:0.1,  c:2.6,  f:0,    k:85,  fb:0,  sg:0.6, na:4,    serv:147 },
   "Coffee, black":                 { p:0.1,  c:0,    f:0,    k:1,   fb:0,  sg:0,   na:2,    serv:237 },
+  // ── extras ──
+  "Ground chicken, cooked":        { p:27,   c:0,    f:11,   k:200, fb:0,  sg:0,   na:90,   serv:113 },
+  "Pork tenderloin, cooked":       { p:26,   c:0,    f:3.5,  k:143, fb:0,  sg:0,   na:53,   serv:113 },
+  "Deli turkey, sliced":           { p:13,   c:2,    f:1.5,  k:76,  fb:0,  sg:2,   na:1010, serv:56  },
+  "Hot dog, beef/pork, cooked":    { p:11,   c:4,    f:27,   k:290, fb:0,  sg:1,   na:980,  serv:50  },
+  "Beef jerky":                    { p:33,   c:11,   f:26,   k:410, fb:1.8,sg:9,   na:1790, serv:28  },
+  "Chicken nuggets":               { p:15,   c:16,   f:19,   k:296, fb:1,  sg:0.4, na:540,  serv:80  },
+  "Fish sticks, breaded":          { p:12,   c:19,   f:13,   k:240, fb:1,  sg:1,   na:430,  serv:85  },
+  "Meatballs, beef, cooked":       { p:14,   c:6,    f:18,   k:240, fb:0.5,sg:1.5, na:540,  serv:85  },
+  "Egg, scrambled (w/ milk)":      { p:10,   c:1.6,  f:11,   k:149, fb:0,  sg:1.5, na:145,  serv:61  },
+  "Egg, fried":                    { p:13.6, c:0.8,  f:14,   k:196, fb:0,  sg:0.4, na:207,  serv:46  },
+  "Falafel":                       { p:13,   c:32,   f:18,   k:333, fb:5,  sg:0,   na:294,  serv:60  },
+  "Veggie burger patty":           { p:18,   c:9,    f:8,    k:180, fb:4,  sg:1,   na:380,  serv:71  },
+  "Protein shake, ready-to-drink": { p:9,    c:4,    f:1,    k:65,  fb:1,  sg:2,   na:90,   serv:325 },
+  "Cottage cheese, full-fat 4%":   { p:11,   c:3.4,  f:4.3,  k:98,  fb:0,  sg:2.7, na:364,  serv:113 },
+  "Feta cheese":                   { p:14,   c:4.1,  f:21,   k:264, fb:0,  sg:4.1, na:1116, serv:28  },
+  "Ricotta cheese, part skim":     { p:11,   c:6,    f:8,    k:138, fb:0,  sg:0.3, na:125,  serv:62  },
+  "Sour cream":                    { p:2.4,  c:4.6,  f:20,   k:198, fb:0,  sg:3.4, na:41,   serv:30  },
+  "Heavy whipping cream":          { p:2.8,  c:2.8,  f:37,   k:340, fb:0,  sg:2.9, na:27,   serv:15  },
+  "Half and half":                 { p:3,    c:4.3,  f:12,   k:130, fb:0,  sg:0.4, na:41,   serv:30  },
+  "Oat milk":                      { p:1,    c:6.7,  f:1.5,  k:43,  fb:0.8,sg:4,   na:42,   serv:240 },
+  "Chocolate milk, low-fat":       { p:3.4,  c:10.3, f:1,    k:63,  fb:0.8,sg:9.8, na:60,   serv:250 },
+  "Coconut milk, canned":          { p:2.3,  c:3.3,  f:24,   k:230, fb:0,  sg:3.3, na:15,   serv:80  },
+  "Frozen yogurt":                 { p:4,    c:22,   f:4,    k:127, fb:0,  sg:18,  na:63,   serv:87  },
+  "Naan bread":                    { p:9,    c:50,   f:8,    k:310, fb:2,  sg:4,   na:460,  serv:90  },
+  "Pita bread, whole wheat":       { p:9.8,  c:56,   f:2.7,  k:266, fb:7.4,sg:0.6, na:540,  serv:64  },
+  "Croissant":                     { p:8,    c:46,   f:21,   k:406, fb:2.6,sg:11,  na:470,  serv:57  },
+  "Waffle, frozen, toasted":       { p:6.7,  c:33,   f:9,    k:248, fb:1.6,sg:5,   na:460,  serv:70  },
+  "Bran flakes cereal":            { p:10,   c:80,   f:2,    k:350, fb:16, sg:18,  na:600,  serv:30  },
+  "Oatmeal, cooked (with water)":  { p:2.5,  c:12,   f:1.5,  k:71,  fb:1.7,sg:0.5, na:4,    serv:234 },
+  "Mashed potatoes (w/ milk & butter)":{p:1.9,c:17,  f:4.2,  k:113, fb:1.5,sg:1.6, na:330,  serv:210 },
+  "Hash browns":                   { p:2.7,  c:19,   f:13,   k:197, fb:1.7,sg:0.4, na:290,  serv:100 },
+  "Macaroni & cheese, prepared":   { p:6.8,  c:18,   f:7,    k:164, fb:0.9,sg:2.5, na:350,  serv:200 },
+  "Spaghetti with marinara sauce": { p:4,    c:17,   f:2.5,  k:105, fb:1.6,sg:3.5, na:260,  serv:250 },
+  "Sushi roll, California (6-8 pc)":{ p:4,   c:28,   f:2.5,  k:145, fb:1.5,sg:4,   na:330,  serv:170 },
+  "Pretzels":                      { p:10,   c:80,   f:3,    k:380, fb:3,  sg:2,   na:1240, serv:30  },
+  "Tortilla chips":                { p:7,    c:65,   f:24,   k:503, fb:5,  sg:1,   na:380,  serv:28  },
+  "Refried beans":                 { p:5,    c:13,   f:2,    k:90,  fb:5,  sg:0.5, na:380,  serv:130 },
+  "Black-eyed peas, cooked":       { p:8,    c:21,   f:0.5,  k:116, fb:6.5,sg:3,   na:4,    serv:165 },
+  "Bell pepper, green, raw":       { p:0.9,  c:4.6,  f:0.2,  k:20,  fb:1.7,sg:2.4, na:3,    serv:119 },
+  "Celery, raw":                   { p:0.7,  c:3,    f:0.2,  k:16,  fb:1.6,sg:1.3, na:80,   serv:40  },
+  "Cabbage, raw":                  { p:1.3,  c:5.8,  f:0.1,  k:25,  fb:2.5,sg:3.2, na:18,   serv:89  },
+  "Eggplant, cooked":              { p:0.8,  c:8.7,  f:0.2,  k:35,  fb:2.5,sg:3.2, na:1,    serv:99  },
+  "Butternut squash, cooked":      { p:0.9,  c:11,   f:0.1,  k:40,  fb:2,  sg:2.2, na:4,    serv:205 },
+  "Guacamole":                     { p:2,    c:9,    f:14,   k:155, fb:6,  sg:1,   na:280,  serv:30  },
+  "Cantaloupe":                    { p:0.8,  c:8.2,  f:0.2,  k:34,  fb:0.9,sg:7.9, na:16,   serv:160 },
+  "Plum":                          { p:0.7,  c:11,   f:0.3,  k:46,  fb:1.4,sg:9.9, na:0,    serv:66  },
+  "Apricot":                       { p:1.4,  c:11,   f:0.4,  k:48,  fb:2,  sg:9.2, na:1,    serv:70  },
+  "Pomegranate seeds":             { p:1.7,  c:19,   f:1.2,  k:83,  fb:4,  sg:14,  na:3,    serv:87  },
+  "Mixed berries, frozen":         { p:0.7,  c:12,   f:0.4,  k:50,  fb:3,  sg:7,   na:1,    serv:140 },
+  "Hazelnuts":                     { p:15,   c:17,   f:61,   k:628, fb:9.7,sg:4.3, na:0,    serv:28  },
+  "Brazil nuts":                   { p:14,   c:12,   f:66,   k:656, fb:7.5,sg:2.3, na:3,    serv:28  },
+  "Coconut, shredded, dried":      { p:6.9,  c:24,   f:65,   k:660, fb:16, sg:7.4, na:37,   serv:28  },
+  "Trail mix":                     { p:14,   c:45,   f:30,   k:462, fb:5,  sg:30,  na:110,  serv:40  },
+  "Granola bar":                   { p:6,    c:64,   f:16,   k:440, fb:4,  sg:25,  na:200,  serv:28  },
+  "Brownie":                       { p:4,    c:50,   f:22,   k:405, fb:2,  sg:35,  na:200,  serv:50  },
+  "Cheesecake":                    { p:5.5,  c:26,   f:23,   k:321, fb:0.4,sg:22,  na:240,  serv:80  },
+  "Donut, glazed":                 { p:4.9,  c:51,   f:25,   k:452, fb:1.5,sg:23,  na:370,  serv:60  },
+  "Muffin, blueberry":             { p:4.5,  c:51,   f:14,   k:350, fb:1.5,sg:28,  na:320,  serv:110 },
+  "Pudding, chocolate":            { p:2.6,  c:22,   f:3.4,  k:130, fb:0.6,sg:16,  na:130,  serv:113 },
+  "Jam / jelly":                   { p:0.2,  c:65,   f:0,    k:250, fb:1,  sg:49,  na:30,   serv:20  },
+  "Gummy candy / fruit snacks":    { p:0,    c:82,   f:0,    k:330, fb:0,  sg:50,  na:30,   serv:25  },
+  "Ranch dressing":                { p:1,    c:6,    f:56,   k:530, fb:0,  sg:4,   na:1100, serv:30  },
+  "BBQ sauce":                     { p:0.8,  c:41,   f:0.6,  k:172, fb:0.9,sg:33,  na:820,  serv:35  },
+  "Sriracha sauce":                { p:2,    c:19,   f:1,    k:93,  fb:2.2,sg:15,  na:2100, serv:9   },
+  "Pesto sauce":                   { p:5,    c:6,    f:50,   k:480, fb:1.5,sg:2,   na:850,  serv:16  },
+  "Sports drink (electrolyte)":    { p:0,    c:6,    f:0,    k:24,  fb:0,  sg:6,   na:41,   serv:240 },
+  "Lemonade":                      { p:0.1,  c:10,   f:0,    k:40,  fb:0,  sg:9.5, na:4,    serv:248 },
+  "Fruit smoothie (store-bought)": { p:1.5,  c:17,   f:0.5,  k:75,  fb:1.5,sg:14,  na:10,   serv:250 },
 };
 
 const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
@@ -576,6 +749,28 @@ const MEAL_PRESETS = [
     items:[["Apple, with skin",1,"serv"],["Peanut butter",30,"g"]] },
   { emoji:"🧀", name:"Cheese & crackers", note:"saltines · cheddar",
     items:[["Crackers, saltine",30,"g"],["Cheddar cheese",30,"g"]] },
+  { emoji:"🍳", name:"Diner breakfast", note:"scrambled eggs · bacon · hash browns · toast",
+    items:[["Egg, scrambled (w/ milk)",120,"g"],["Bacon, cooked",30,"g"],["Hash browns",100,"g"],["Bread, white",50,"g"]] },
+  { emoji:"🥯", name:"Bagel & cream cheese", note:"plain bagel · cream cheese · orange juice",
+    items:[["Bagel, plain",99,"g"],["Cream cheese",40,"g"],["Orange juice",1,"serv"]] },
+  { emoji:"🥣", name:"Oatmeal & fruit", note:"oatmeal · banana · almonds · honey",
+    items:[["Oatmeal, cooked (with water)",250,"g"],["Banana",1,"serv"],["Almonds",15,"g"],["Honey",10,"g"]] },
+  { emoji:"🌮", name:"Taco night (3 tacos)", note:"flour tortillas · ground beef · cheddar · romaine · salsa",
+    items:[["Tortilla, flour",135,"g"],["Ground beef, 85% lean, cooked",120,"g"],["Cheddar cheese",30,"g"],["Lettuce, romaine",40,"g"],["Salsa",45,"g"]] },
+  { emoji:"🍣", name:"Sushi lunch", note:"California roll · soy sauce · edamame",
+    items:[["Sushi roll, California (6-8 pc)",340,"g"],["Soy sauce",15,"g"],["Edamame, shelled, cooked",80,"g"]] },
+  { emoji:"🥪", name:"Tuna salad plate", note:"tuna · mayo · romaine · tomato · crackers",
+    items:[["Tuna, canned in water, drained",100,"g"],["Mayonnaise",15,"g"],["Lettuce, romaine",80,"g"],["Tomato, raw",80,"g"],["Crackers, saltine",20,"g"]] },
+  { emoji:"🍔", name:"Burger & fries", note:"fast-food burger · fries",
+    items:[["Hamburger, fast food, w/ bun",200,"g"],["French fries",115,"g"]] },
+  { emoji:"🍗", name:"Rotisserie chicken plate", note:"chicken thigh · mashed potatoes · green beans",
+    items:[["Chicken thigh, cooked",150,"g"],["Mashed potatoes (w/ milk & butter)",200,"g"],["Green beans, cooked",120,"g"]] },
+  { emoji:"🥣", name:"Cottage cheese & fruit", note:"cottage cheese · pineapple · walnuts",
+    items:[["Cottage cheese, low-fat 2%",150,"g"],["Pineapple",100,"g"],["Walnuts",15,"g"]] },
+  { emoji:"🔪", name:"Lean cutting plate", note:"chicken breast · brown rice · broccoli",
+    items:[["Chicken breast, cooked",170,"g"],["Brown rice, cooked",120,"g"],["Broccoli, cooked",150,"g"]] },
+  { emoji:"🌙", name:"Casein-style night snack", note:"Greek yogurt · peanut butter · blueberries",
+    items:[["Greek yogurt, plain, nonfat",200,"g"],["Peanut butter",16,"g"],["Blueberries",60,"g"]] },
 ];
 
 const ACTIVITY = {
@@ -605,30 +800,43 @@ const DIETS = {
 };
 
 const OZ_TO_G = 28.3495, LB_TO_KG = 0.45359237, IN_TO_CM = 2.54;
-const STORE_FOODS = "macrocalc.customFoods", STORE_LOG = "macrocalc.log", STORE_LOGDATE = "macrocalc.logDate", STORE_PROFILE = "macrocalc.profile";
+const STORE_FOODS = "macrocalc.customFoods", STORE_LOG = "macrocalc.log", STORE_LOGDATE = "macrocalc.logDate",
+      STORE_PROFILE = "macrocalc.profile", STORE_WATER = "macrocalc.water", STORE_PRESETS = "macrocalc.customPresets",
+      STORE_UI = "macrocalc.ui", STORE_RECENT = "macrocalc.recent";
+const RECENT_MAX = 14;
 const DEFAULT_PROFILE = {
   mode:"calc", units:"metric", sex:"male", age:30, height:175, weight:75,
   act:"mod", goal:"maint", diet:"balanced", prot:"0", cpP:30, cpC:40, cpF:30,
-  mP:"", mC:"", mF:"", mK:"", qaMeal:"Breakfast",
+  mP:"", mC:"", mF:"", mK:"", qaMeal:"Breakfast", waterGoal:2500,
 };
 function todayStr(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function dayLabel(){ return new Date().toLocaleDateString(undefined, { weekday:"long", day:"numeric", month:"long" }); }
 
 // ── State ────────────────────────────────────────────────────────────────
-// Goal/profile and custom foods are remembered; the food log is "today only" —
-// it survives a reload during the same day but a new calendar day starts empty.
-// No multi-day history is kept anywhere.
-let customFoods = loadJSON(STORE_FOODS, {});
-let profile     = Object.assign({}, DEFAULT_PROFILE, loadJSON(STORE_PROFILE, {}));
-let log         = (localStorage.getItem(STORE_LOGDATE) === todayStr()) ? loadJSON(STORE_LOG, []) : [];
+// Goal/profile, custom foods, custom presets and UI prefs are remembered.
+// The food log and water count are "today only" — they survive a reload during
+// the same day but a new calendar day starts empty. No multi-day history is kept.
+let customFoods   = loadJSON(STORE_FOODS, {});
+let customPresets = loadJSON(STORE_PRESETS, []);
+let recentNames   = loadJSON(STORE_RECENT, []);   // last foods logged — a "frequently used" cache, not a diary
+let profile       = Object.assign({}, DEFAULT_PROFILE, loadJSON(STORE_PROFILE, {}));
+let ui            = Object.assign({ theme:"dark", collapsed:["card-custom"] }, loadJSON(STORE_UI, {}));
+const _freshDay   = (localStorage.getItem(STORE_LOGDATE) !== todayStr());
+let log           = _freshDay ? [] : loadJSON(STORE_LOG, []);
+let water         = _freshDay ? 0  : (parseFloat(loadJSON(STORE_WATER, 0)) || 0);
 
 function loadJSON(key, fb){ try{ const v = JSON.parse(localStorage.getItem(key)); return v ?? fb; }catch{ return fb; } }
 function save(){
   localStorage.setItem(STORE_FOODS, JSON.stringify(customFoods));
+  localStorage.setItem(STORE_PRESETS, JSON.stringify(customPresets));
+  localStorage.setItem(STORE_RECENT, JSON.stringify(recentNames));
   localStorage.setItem(STORE_LOG, JSON.stringify(log));
+  localStorage.setItem(STORE_WATER, JSON.stringify(water));
   localStorage.setItem(STORE_LOGDATE, todayStr());
   localStorage.setItem(STORE_PROFILE, JSON.stringify(profile));
+  localStorage.setItem(STORE_UI, JSON.stringify(ui));
 }
+function saveUI(){ localStorage.setItem(STORE_UI, JSON.stringify(ui)); }
 function allFoods(){ return Object.assign({}, BUILTIN_FOODS, customFoods); }
 const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 const round = (n, d=1) => { const m = Math.pow(10, d); return Math.round(n*m)/m; };
@@ -716,10 +924,11 @@ function toast(html){
 }
 
 // ── add helpers ──────────────────────────────────────────────────────────
+function noteRecent(name){ recentNames = [name, ...recentNames.filter(n => n !== name)].slice(0, RECENT_MAX); }
 function pushFood(name, qty, unit, meal){
   const food = allFoods()[name];
   if (!food || !(qty > 0)) return false;
-  log.push({ name, qty, unit, meal }); return true;
+  log.push({ name, qty, unit, meal }); noteRecent(name); return true;
 }
 function qaMeal(){ return document.getElementById("qaMeal").value; }
 
@@ -740,6 +949,7 @@ function syncProfileForm(){
   document.getElementById("mP").value=profile.mP; document.getElementById("mC").value=profile.mC;
   document.getElementById("mF").value=profile.mF; document.getElementById("mK").value=profile.mK;
   document.getElementById("qaMeal").value = profile.qaMeal || "Breakfast";
+  document.getElementById("waterGoal").value = profile.waterGoal;
 }
 function readProfileForm(){
   profile.sex=document.getElementById("pSex").value; profile.age=document.getElementById("pAge").value;
@@ -750,33 +960,44 @@ function readProfileForm(){
   profile.mP=document.getElementById("mP").value; profile.mC=document.getElementById("mC").value;
   profile.mF=document.getElementById("mF").value; profile.mK=document.getElementById("mK").value;
   profile.qaMeal=document.getElementById("qaMeal").value;
+  profile.waterGoal=document.getElementById("waterGoal").value;
   document.getElementById("customPct").style.display = profile.diet === "custom" ? "" : "none";
 }
 
 // ── quick-add UI ─────────────────────────────────────────────────────────
+function chipHTML(name){
+  const f = allFoods()[name]; if (!f) return null;
+  const kc = round(macrosFor(f, gramsFor(f, 1, "serv")).k, 0);
+  const b = document.createElement("button");
+  b.className = "fchip"; b.dataset.add = name;
+  b.innerHTML = `<span class="em">${foodEmoji(name)}</span> ${escapeHTML(name.split(",")[0])} <span class="kc">${kc} kcal</span>`;
+  return b;
+}
+function renderRecentChips(){
+  const rc = document.getElementById("recentChips"); rc.innerHTML = "";
+  const valid = recentNames.filter(n => allFoods()[n]);
+  document.getElementById("recentWrap").style.display = valid.length ? "" : "none";
+  valid.forEach(n => { const b = chipHTML(n); if (b) rc.appendChild(b); });
+}
 function buildQuickAdd(){
   const foods = allFoods();
+  renderRecentChips();
   const pc = document.getElementById("popChips"); pc.innerHTML = "";
-  POPULAR.forEach(name => {
-    const f = foods[name]; if (!f) return;
-    const kc = round(macrosFor(f, gramsFor(f, 1, "serv")).k, 0);
-    const b = document.createElement("button");
-    b.className = "fchip"; b.dataset.add = name;
-    b.innerHTML = `<span class="em">${foodEmoji(name)}</span> ${escapeHTML(name.split(",")[0])} <span class="kc">${kc} kcal</span>`;
-    pc.appendChild(b);
-  });
+  POPULAR.forEach(name => { const b = chipHTML(name); if (b) pc.appendChild(b); });
   const pg = document.getElementById("presetGrid"); pg.innerHTML = "";
-  MEAL_PRESETS.forEach((preset, i) => {
-    let kc = 0;
-    preset.items.forEach(([n,q,u]) => { const f = foods[n]; if (f) kc += macrosFor(f, gramsFor(f, q, u)).k; });
+  const addCard = (preset, key, custom) => {
+    let kc = 0, missing = 0;
+    preset.items.forEach(([n,q,u]) => { const f = foods[n]; if (f) kc += macrosFor(f, gramsFor(f, q, u)).k; else missing++; });
     const d = document.createElement("div");
-    d.className = "preset"; d.dataset.preset = i;
-    d.innerHTML = `<span class="add-pill">tap to add</span>
-      <div class="ph"><span class="pe">${preset.emoji}</span><span class="pn">${escapeHTML(preset.name)}</span></div>
-      <div class="pmeta">${escapeHTML(preset.note)}</div>
-      <div class="pk">≈ ${round(kc,0)} kcal · ${preset.items.length} items</div>`;
+    d.className = "preset" + (custom ? " custom" : ""); d.dataset.preset = key;
+    d.innerHTML = `${custom ? `<span class="del-pill" data-delpreset="${key.slice(1)}" title="delete preset">✕</span>` : `<span class="add-pill">tap to add</span>`}
+      <div class="ph"><span class="pe">${preset.emoji||"🍱"}</span><span class="pn">${escapeHTML(preset.name)}</span></div>
+      <div class="pmeta">${escapeHTML(preset.note||"")}</div>
+      <div class="pk">≈ ${round(kc,0)} kcal · ${preset.items.length} item${preset.items.length===1?"":"s"}${missing?` · ${missing} not found`:""}</div>`;
     pg.appendChild(d);
-  });
+  };
+  MEAL_PRESETS.forEach((p, i) => addCard(p, "b" + i, false));
+  customPresets.forEach((p, i) => addCard(p, "c" + i, true));
 }
 
 // ── food datalist + custom-food summary ──────────────────────────────────
@@ -803,7 +1024,7 @@ function render(){
     if (!rows.length) return;
     const sub = { p:0,c:0,f:0,fb:0,sg:0,na:0,k:0 };
     const hdr = document.createElement("tr"); hdr.className = "mealhdr";
-    hdr.innerHTML = `<td colspan="${COLS-1}"><span class="mh">${MEAL_EMOJI[meal]} ${meal}</span></td><td style="text-align:right;"><button class="danger" data-clearmeal="${meal}" title="Clear ${meal}">✕</button></td>`;
+    hdr.innerHTML = `<td colspan="${COLS-1}"><span class="mh">${MEAL_EMOJI[meal]} ${meal}</span></td><td style="text-align:right;white-space:nowrap;"><button class="danger" data-savemeal="${meal}" title="Save ${meal} as a preset" style="color:var(--accent);">💾</button><button class="danger" data-clearmeal="${meal}" title="Clear ${meal}">✕</button></td>`;
     body.appendChild(hdr);
     rows.forEach(({it,idx}) => {
       const food = foods[it.name]; const tr = document.createElement("tr");
@@ -836,8 +1057,51 @@ function render(){
   document.getElementById("tF").textContent=round(T.f); document.getElementById("tNa").textContent=round(T.na,0);
   document.getElementById("tK").textContent=round(T.k,0);
 
-  renderTargets(); renderDonut(T); renderBars(T); renderMicros(T);
+  renderTargets(); renderDonut(T); renderBars(T); renderMicros(T); renderWater(); renderSageStatus(T); renderRecentChips();
   save();
+}
+
+// Sage's one-line read on the day.
+function renderSageStatus(T){
+  const el = document.getElementById("sageStatus");
+  const t = computeTargets(profile);
+  let msg;
+  if (!t.set){
+    msg = `Set a goal above and I'll tell you how today's tracking.`;
+  } else if (log.length === 0){
+    msg = `Nothing logged yet — add a food or tap a preset and I'll start the tally.`;
+  } else {
+    const kLeft = t.k - T.k, pLeft = t.p - T.p;
+    if (kLeft < 0){
+      msg = `You're <b>${round(-kLeft,0)} kcal over</b> target for today` + (pLeft > 0 ? ` — but still <b>${round(pLeft,0)} g protein</b> short, so prioritise protein.` : `. Ease off from here.`);
+    } else if (kLeft <= t.k * 0.06){
+      msg = `Right on target — <b>${round(kLeft,0)} kcal</b> to go` + (pLeft > 0 ? `, and <b>${round(pLeft,0)} g protein</b> still to hit.` : `, protein's covered. Nice work.`);
+    } else {
+      msg = `You've got <b>${round(kLeft,0)} kcal</b> and <b>${round(Math.max(0,pLeft),0)} g protein</b> left for today.`;
+    }
+  }
+  el.innerHTML = `<span><b style="color:var(--accent)">SAGE</b> &nbsp;·&nbsp; ${msg}</span>`;
+}
+
+function renderWater(){
+  const goal = num(profile.waterGoal);
+  const pct = goal > 0 ? water / goal * 100 : 0, over = goal > 0 && water > goal;
+  document.getElementById("waterNums").textContent = `${Math.round(water)} / ${Math.round(goal)} ml  ·  ${(water/250).toFixed(1)} cups`;
+  const left = document.getElementById("waterLeft");
+  left.textContent = goal > 0 ? (over ? `${Math.round(water-goal)} ml over` : `${Math.round(goal-water)} ml left`) : "";
+  left.className = "left " + (over ? "over" : "ok");
+  const fill = document.getElementById("waterFill");
+  fill.style.width = Math.min(100, pct) + "%";
+  fill.classList.toggle("fill-over", over);
+  const slots = Math.min(20, Math.max(8, Math.ceil(goal / 250) || 8));
+  const full = Math.floor(water / 250);
+  let html = "";
+  for (let i = 0; i < slots; i++) html += `<span class="${i < full ? "full" : ""}">💧</span>`;
+  document.getElementById("waterCups").innerHTML = html;
+}
+function changeWater(deltaOrZero){
+  if (deltaOrZero === 0) water = 0; else water = Math.max(0, water + deltaOrZero);
+  renderWater(); save();
 }
 
 function renderTargets(){
@@ -876,11 +1140,11 @@ function renderDonut(T){
   const kP = T.p*4, kC = T.c*4, kF = T.f*9, kSum = kP+kC+kF;
   if (kSum > 0){
     let off = 0;
-    [["var(--protein)",kP],["var(--carbs)",kC],["var(--fat)",kF]].forEach(([col,val]) => {
+    [["arc-p",kP],["arc-c",kC],["arc-f",kF]].forEach(([cls,val]) => {
       const len = val/kSum*C_IN;
       const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
       c.setAttribute("cx",100); c.setAttribute("cy",100); c.setAttribute("r",R_IN);
-      c.setAttribute("fill","none"); c.setAttribute("stroke",col); c.setAttribute("stroke-width",18);
+      c.setAttribute("class", cls);
       c.setAttribute("stroke-dasharray", `${Math.max(0,len-1.5)} ${C_IN-Math.max(0,len-1.5)}`);
       c.setAttribute("stroke-dashoffset", -off);
       g.appendChild(c); off += len;
@@ -950,10 +1214,11 @@ document.getElementById("unitSeg").addEventListener("click", e => {
   }
   syncProfileForm(); render();
 });
-["pSex","pAge","pHeight","pWeight","pAct","pGoal","pDiet","pProt","cpP","cpC","cpF","mP","mC","mF","mK","qaMeal"]
+["pSex","pAge","pHeight","pWeight","pAct","pGoal","pDiet","pProt","cpP","cpC","cpF","mP","mC","mF","mK","qaMeal","waterGoal"]
   .forEach(id => document.getElementById(id).addEventListener("change", () => { readProfileForm(); render(); }));
 ["pAge","pHeight","pWeight","cpP","cpC","cpF","mP","mC","mF","mK"]
   .forEach(id => document.getElementById(id).addEventListener("input", () => { readProfileForm(); const T = currentTotals(); renderTargets(); renderDonut(T); renderBars(T); }));
+document.getElementById("waterGoal").addEventListener("input", () => { readProfileForm(); renderWater(); });
 function currentTotals(){
   const foods = allFoods(); const T = { p:0,c:0,f:0,fb:0,sg:0,na:0,k:0 };
   log.forEach(it => { const food = foods[it.name]; if (!food) return; const m = macrosFor(food, gramsFor(food, num(it.qty), it.unit)); T.p+=m.p;T.c+=m.c;T.f+=m.f;T.fb+=m.fb;T.sg+=m.sg;T.na+=m.na;T.k+=m.k; });
@@ -961,16 +1226,24 @@ function currentTotals(){
 }
 
 // ── events: quick add ────────────────────────────────────────────────────
-document.getElementById("popChips").addEventListener("click", e => {
+function chipAdd(e){
   const b = e.target.closest("[data-add]"); if (!b) return;
   const name = b.dataset.add, meal = qaMeal(), f = allFoods()[name];
-  if (pushFood(name, 1, "serv", meal)){ render(); toast(`${foodEmoji(name)} Added <b>${escapeHTML(name.split(",")[0])}</b> (${f.serv||100} g) to ${MEAL_EMOJI[meal]} ${meal}`); }
-});
+  if (pushFood(name, 1, "serv", meal)){ render(); toast(`${foodEmoji(name)} Logged <b>${escapeHTML(name.split(",")[0])}</b> (${f.serv||100} g) → ${MEAL_EMOJI[meal]} ${meal}`); }
+}
+document.getElementById("popChips").addEventListener("click", chipAdd);
+document.getElementById("recentChips").addEventListener("click", chipAdd);
 document.getElementById("presetGrid").addEventListener("click", e => {
+  const dp = e.target.closest("[data-delpreset]");
+  if (dp){ e.stopPropagation(); const i = Number(dp.dataset.delpreset);
+    if (confirm(`Delete your preset "${customPresets[i] && customPresets[i].name}"?`)){ customPresets.splice(i,1); buildQuickAdd(); save(); } return; }
   const d = e.target.closest("[data-preset]"); if (!d) return;
-  const preset = MEAL_PRESETS[Number(d.dataset.preset)], meal = qaMeal();
+  const key = d.dataset.preset;
+  const preset = key[0] === "c" ? customPresets[Number(key.slice(1))] : MEAL_PRESETS[Number(key.slice(1))];
+  if (!preset) return;
+  const meal = qaMeal();
   let n = 0; preset.items.forEach(([nm,q,u]) => { if (pushFood(nm, q, u, meal)) n++; });
-  if (n){ render(); toast(`${preset.emoji} Added <b>${escapeHTML(preset.name)}</b> — ${n} items to ${MEAL_EMOJI[meal]} ${meal}`); }
+  if (n){ render(); toast(`${preset.emoji||"🍱"} Logged <b>${escapeHTML(preset.name)}</b> — ${n} item${n===1?"":"s"} → ${MEAL_EMOJI[meal]} ${meal}`); }
 });
 
 // ── events: add a food ───────────────────────────────────────────────────
@@ -982,7 +1255,7 @@ document.getElementById("addBtn").addEventListener("click", () => {
   if (!allFoods()[name]){ alert(`"${name}" isn't in the database.\n\nPick one from the list, or add it under "Add your own food" below.`); return; }
   if (!(qty > 0)){ alert("Enter a quantity greater than 0."); return; }
   pushFood(name, qty, unit, meal); render();
-  toast(`${foodEmoji(name)} Added <b>${escapeHTML(name.split(",")[0])}</b> to ${MEAL_EMOJI[meal]} ${meal}`);
+  toast(`${foodEmoji(name)} Logged <b>${escapeHTML(name.split(",")[0])}</b> → ${MEAL_EMOJI[meal]} ${meal}`);
   document.getElementById("foodSel").value = ""; document.getElementById("qty").value = "100"; document.getElementById("foodSel").focus();
 });
 document.getElementById("foodSel").addEventListener("change", () => {
@@ -999,9 +1272,21 @@ document.getElementById("foodSel").addEventListener("keydown", e => { if (e.key 
 // ── events: log table ────────────────────────────────────────────────────
 document.getElementById("logBody").addEventListener("click", e => {
   const del = e.target.closest("[data-del]"); if (del){ log.splice(Number(del.dataset.del),1); render(); return; }
+  const sm = e.target.closest("[data-savemeal]");
+  if (sm){ saveMealAsPreset(sm.dataset.savemeal); return; }
   const cm = e.target.closest("[data-clearmeal]");
   if (cm && confirm(`Remove all foods from ${cm.dataset.clearmeal}?`)){ log = log.filter(it => (it.meal||"Snacks") !== cm.dataset.clearmeal); render(); }
 });
+function saveMealAsPreset(meal){
+  const items = log.filter(it => (it.meal||"Snacks") === meal).map(it => [it.name, num(it.qty), it.unit]);
+  if (!items.length){ alert(`Nothing logged under ${meal} yet.`); return; }
+  const name = prompt(`Name this preset (it'll appear under "Meal presets"):`, `My ${meal.toLowerCase()}`);
+  if (!name || !name.trim()) return;
+  const note = items.slice(0,5).map(([n]) => n.split(",")[0].toLowerCase()).join(" · ") + (items.length > 5 ? " · …" : "");
+  customPresets.push({ emoji: MEAL_EMOJI[meal] || "🍱", name: name.trim(), note, items });
+  buildQuickAdd(); save();
+  toast(`💾 Saved <b>${escapeHTML(name.trim())}</b> as a preset (${items.length} item${items.length===1?"":"s"})`);
+}
 document.getElementById("logBody").addEventListener("change", e => {
   const q = e.target.closest("[data-qty]"); if (q){ log[Number(q.dataset.qty)].qty = parseFloat(q.value) || 0; render(); return; }
   const mm = e.target.closest("[data-meal]"); if (mm){ log[Number(mm.dataset.meal)].meal = mm.value; render(); }
@@ -1027,11 +1312,54 @@ document.getElementById("customList").addEventListener("click", e => {
   if (confirm(`Delete custom food "${a.dataset.delFood}"? Entries already in your list will show as "not found".`)){ delete customFoods[a.dataset.delFood]; refreshFoodList(); buildQuickAdd(); render(); }
 });
 
+// ── events: water ────────────────────────────────────────────────────────
+document.querySelector("#card-water .water-row").addEventListener("click", e => {
+  const b = e.target.closest("button[data-water]"); if (!b) return;
+  changeWater(Number(b.dataset.water));
+  if (Number(b.dataset.water) > 0) toast(`💧 +${b.dataset.water} ml — ${Math.round(water)} ml so far today`);
+});
+
+// ── events: theme toggle ─────────────────────────────────────────────────
+function applyTheme(){
+  const light = ui.theme === "light";
+  document.body.classList.toggle("light", light);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", light ? "#f4f2ec" : "#0d1117");
+  const t = document.getElementById("themeToggle");
+  t.textContent = light ? "☀️" : "🌙";
+  t.title = light ? "Switch to dark mode" : "Switch to light mode";
+}
+document.getElementById("themeToggle").addEventListener("click", () => {
+  ui.theme = ui.theme === "light" ? "dark" : "light"; applyTheme(); saveUI();
+});
+
+// ── events: collapsible cards ────────────────────────────────────────────
+document.querySelectorAll(".card > h2").forEach(h => h.addEventListener("click", e => {
+  if (e.target.closest("select, input, button, a, label")) return;
+  const card = h.parentElement, id = card.id;
+  card.classList.toggle("collapsed");
+  if (card.classList.contains("collapsed")){ if (!ui.collapsed.includes(id)) ui.collapsed.push(id); }
+  else ui.collapsed = ui.collapsed.filter(x => x !== id);
+  saveUI();
+}));
+
 // ── init ─────────────────────────────────────────────────────────────────
+(function setGreeting(){
+  const h = new Date().getHours();
+  const part = h < 5 ? "Late night" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : h < 22 ? "Good evening" : "Late night";
+  document.getElementById("greeting").innerHTML = `${part} — I'm <b>Sage</b>, your macro assistant. Set a goal, log what you eat, and I'll keep the running count.`;
+})();
+applyTheme();
+ui.collapsed.forEach(id => { const c = document.getElementById(id); if (c) c.classList.add("collapsed"); });
 syncProfileForm();
 refreshFoodList();
 buildQuickAdd();
 render();
+
+// register the service worker (offline support) — silently no-ops when not served over http(s)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
 </script>
 </body>
 </html>
